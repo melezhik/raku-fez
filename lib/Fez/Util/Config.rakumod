@@ -3,7 +3,6 @@ unit module Fez::Util::Config;
 use Fez::Util::Json;
 
 state $ENV-CONFIG-PATH = (%*ENV<FEZ_CONFIG>//%?RESOURCES<config.json>).IO;
-state %ENV-CONFIG  = from-j($ENV-CONFIG-PATH.slurp);
 state $USER-CONFIG-PATH = (
   if $*DISTRO.is-win {
     %*ENV<FEZ_CONFIG> //
@@ -13,11 +12,17 @@ state $USER-CONFIG-PATH = (
     %*ENV<HOME>.IO.add('.fez-config.json')
   }
 ).IO;
+$USER-CONFIG-PATH.parent.mkdir unless $USER-CONFIG-PATH.parent.d;
 $USER-CONFIG-PATH.spurt(to-j({})) unless $USER-CONFIG-PATH.e;
-state %USER-CONFIG = from-j($USER-CONFIG-PATH.slurp);
+state %USER-CONFIG;
+state %ENV-CONFIG;
 
 sub user-config is export {
   %USER-CONFIG;
+}
+
+sub env-config is export {
+  %ENV-CONFIG;
 }
 
 sub config-value($name) is export {
@@ -31,3 +36,11 @@ sub write-to-user-config(%values) is export {
 }
 
 sub user-config-path is export { $USER-CONFIG-PATH; }
+sub env-config-path is export { $ENV-CONFIG-PATH; }
+
+sub reload-config is export {
+  %ENV-CONFIG  = from-j($ENV-CONFIG-PATH.slurp);
+  %USER-CONFIG = from-j($USER-CONFIG-PATH.slurp);
+}
+
+reload-config;

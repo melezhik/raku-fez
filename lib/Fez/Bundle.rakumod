@@ -31,11 +31,21 @@ sub bundle($target) is export {
   
   my ($out, $caught);
   for @handlers -> $handler {
-    CATCH { default { $*IN.print('=<< ' ~ .message); $caught = True; .resume; } }
+    CATCH { default { $*IN.print('=<< ' ~ .message ~ "\n"); $caught = True; .resume; } }
     $caught = False;
     $out = $handler.bundle($location.absolute);
     next if $caught;
     return $location;
   }
   die 'All bundlers exhausted, unable to make .tar.gz';
+}
+
+sub cat($target, $file) is export {
+  return Failure unless $target.IO.f;
+  @handlers.map({ try $_.cat($target, $file) }).grep(*.defined).first;
+}
+
+sub ls($target) is export {
+  return Failure unless $target.IO.f;
+  @handlers.map({ try $_.ls($target) }).grep(*.defined).first;
 }
