@@ -353,7 +353,8 @@ multi MAIN('checkbuild', Str :$file = '', Bool :$auth-mismatch-error = False, Bo
     $errors++ if %check.keys;
   }
 
-  if !($meta<auth>.substr(4) (elem) [(config-value('un')//'<unset>'), |(config-value('groups')//[])]) {
+  my @groups = .map({.<group>}) with config-value('groups');
+  if !($meta<auth>.substr(4) (elem) [(config-value('un')//'<unset>'), |@groups]) {
     printf "=<< \"%s\" does not match the username you last logged in with (%s) or a group you belong to,\n=<< you will need to login before uploading your dist\n\n",
            $meta<auth>.substr(4),
            (config-value('un')//'unset');
@@ -396,6 +397,21 @@ multi MAIN('meta', Str :$name is copy, Str :$website is copy, Str :$email is cop
     $*ERR.say: '=<< You must login to change your info';
     exit 255;
   }
+
+  my $ukey = "zef:{config-value('un')}";
+  my $response = try get('http://360.zef.pm/meta.json');
+  if $response{$ukey} {
+    say ">>= Name:    {$response{$ukey}<name>//'<none provided>'}";
+    say ">>= Email:   {$response{$ukey}<email>//'<none provided>'}";
+    say ">>= Website: {$response{$ukey}<website>//'<none provided>'}";
+    my $should-update = prompt('>>= Would you like to update [y/N]? ').trim;
+    if $should-update.uc !~~ 'Y'|'YE'|'YES' {
+      exit 0;
+    }
+  } else {
+    say '>>= No existing meta for current user';
+  }
+
   my %data;
   if ($name//'') eq '' && ($website//'') eq '' && ($email//'') eq '' {
     %data<name>    = prompt('>>= What would you like your display name to show? ').trim;
@@ -413,7 +429,7 @@ multi MAIN('meta', Str :$name is copy, Str :$website is copy, Str :$email is cop
     say '>>= Nothing to update';
     exit 0;
   }
-  my $response;
+  $response = Any;
   while ! ($response<success>//False) {
     $response = try post(
       '/update-meta',
